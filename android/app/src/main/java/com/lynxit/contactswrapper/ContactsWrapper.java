@@ -1,19 +1,21 @@
 package com.lynxit.contactswrapper;
 
 import android.app.Activity;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import 	android.Manifest;
 import android.database.Cursor;
 import android.net.Uri;
+import android.content.pm.PackageManager;
+import android.support.v4.content.ContextCompat;
+import android.support.v4.app.ActivityCompat;
 import android.provider.ContactsContract;
-import android.util.Log;
-
+import 	android.util.Log;
 import java.net.URI;
 import java.util.*;
-
+import android.support.v4.app.ActivityCompat.OnRequestPermissionsResultCallback;
 import com.facebook.react.*;
-
+import com.facebook.common.logging.FLog;
 import com.facebook.react.ReactPackage;
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
@@ -34,35 +36,20 @@ public class ContactsWrapper extends ReactContextBaseJavaModule implements Activ
 
     private static final int CONTACT_REQUEST = 1;
     private static final int EMAIL_REQUEST = 2;
-    public static final String E_CONTACT_CANCELLED = "E_CONTACT_CANCELLED";
-    public static final String E_CONTACT_NO_DATA = "E_CONTACT_NO_DATA";
-    public static final String E_CONTACT_NO_EMAIL = "E_CONTACT_NO_EMAIL";
-    public static final String E_CONTACT_EXCEPTION = "E_CONTACT_EXCEPTION";
-    public static final String E_CONTACT_PERMISSION = "E_CONTACT_PERMISSION";
+    private static final String E_CONTACT_CANCELLED = "E_CONTACT_CANCELLED";
+    private static final String E_CONTACT_NO_DATA = "E_CONTACT_NO_DATA";
+    private static final String E_CONTACT_NO_EMAIL = "E_CONTACT_NO_EMAIL";
+    private static final String E_CONTACT_EXCEPTION = "E_CONTACT_EXCEPTION";
+    private static final String TAG = "MyActivity";
+    final private int MY_PERMISSIONS_REQUEST_READ_CONTACTS = 123;
+
     private Promise mContactsPromise;
     private Activity mCtx;
-    private final ContentResolver contentResolver;
-    private static final List<String> JUST_ME_PROJECTION = new ArrayList<String>() {{
-        add(ContactsContract.Contacts.Data.MIMETYPE);
-        add(ContactsContract.Profile.DISPLAY_NAME);
-        add(ContactsContract.CommonDataKinds.Contactables.PHOTO_URI);
-        add(ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME);
-        add(ContactsContract.CommonDataKinds.StructuredName.GIVEN_NAME);
-        add(ContactsContract.CommonDataKinds.StructuredName.MIDDLE_NAME);
-        add(ContactsContract.CommonDataKinds.StructuredName.FAMILY_NAME);
-        add(ContactsContract.CommonDataKinds.Phone.NUMBER);
-        add(ContactsContract.CommonDataKinds.Phone.TYPE);
-        add(ContactsContract.CommonDataKinds.Phone.LABEL);
-        add(ContactsContract.CommonDataKinds.Email.DATA);
-        add(ContactsContract.CommonDataKinds.Email.ADDRESS);
-        add(ContactsContract.CommonDataKinds.Email.TYPE);
-        add(ContactsContract.CommonDataKinds.Email.LABEL);
-    }};
 
 
     public ContactsWrapper(ReactApplicationContext reactContext) {
         super(reactContext);
-        this.contentResolver = getReactApplicationContext().getContentResolver();
+
         reactContext.addActivityEventListener(this);
     }
 
@@ -89,25 +76,69 @@ public class ContactsWrapper extends ReactContextBaseJavaModule implements Activ
      * @param requestCode - request code to specify what contact data to return
      */
     private void launchPicker(Promise contactsPromise, int requestCode) {
-//        this.contentResolver.query(Uri.parse("content://com.android.contacts/contacts/lookup/0r3-A7416BA07AEA92F2/3"), null, null, null, null);
-        Cursor cursor = this.contentResolver.query(ContactsContract.Contacts.CONTENT_URI, null, null, null, null);
-        if (cursor != null) {
-            mContactsPromise = contactsPromise;
-            Intent intent = new Intent(Intent.ACTION_PICK);
-            intent.setType(ContactsContract.Contacts.CONTENT_TYPE);
-            mCtx = getCurrentActivity();
-            if (intent.resolveActivity(mCtx.getPackageManager()) != null) {
-                mCtx.startActivityForResult(intent, requestCode);
+
+        mContactsPromise = contactsPromise;
+        Intent intent = new Intent(Intent.ACTION_PICK);
+        intent.setType(ContactsContract.Contacts.CONTENT_TYPE);
+        mCtx = getCurrentActivity();
+
+        if (intent.resolveActivity(mCtx.getPackageManager()) != null) {
+            mCtx.startActivityForResult(intent, requestCode);
+        }
+    }
+
+
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case MY_PERMISSIONS_REQUEST_READ_CONTACTS: {
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+
+                    // permission was granted, yay! Do the
+                    // contacts-related task you need to do.
+
+                } else {
+
+                    // permission denied, boo! Disable the
+                    // functionality that depends on this permission.
+                }
+                return;
             }
-            cursor.close();
-        }else{
-            mContactsPromise.reject(E_CONTACT_PERMISSION, "no permission");
+
+            // other 'case' lines to check for other
+            // permissions this app might request
         }
     }
 
     @Override
     public void onActivityResult(Activity ContactsWrapper, final int requestCode, final int resultCode, final Intent intent) {
+        if (ContextCompat.checkSelfPermission(ContactsWrapper,
+                Manifest.permission.READ_CONTACTS)
+                != PackageManager.PERMISSION_GRANTED) {
 
+            // Should we show an explanation?
+            if (ActivityCompat.shouldShowRequestPermissionRationale(ContactsWrapper,
+                    Manifest.permission.READ_CONTACTS)) {
+
+                // Show an explanation to the user *asynchronously* -- don't block
+                // this thread waiting for the user's response! After the user
+                // sees the explanation, try again to request the permission.
+
+            } else {
+
+                // No explanation needed, we can request the permission.
+
+                ActivityCompat.requestPermissions(ContactsWrapper,
+                        new String[]{Manifest.permission.READ_CONTACTS},
+                        MY_PERMISSIONS_REQUEST_READ_CONTACTS);
+
+                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
+                // app-defined int constant. The callback method gets the
+                // result of the request.
+            }
+        }
         if(mContactsPromise == null || mCtx == null
               || (requestCode != CONTACT_REQUEST && requestCode != EMAIL_REQUEST)){
           return;
@@ -120,21 +151,31 @@ public class ContactsWrapper extends ReactContextBaseJavaModule implements Activ
                 switch(requestCode) {
                     case(CONTACT_REQUEST):
                         try {
+
                             /* Retrieve all possible data about contact and return as a JS object */
+
+                            /* Map Any contact data we want returned to the JS object key for React Native */
+                            HashMap<String, String> returnKeys = new HashMap<String, String>();
+                            returnKeys.put(ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE, "name");
+                            returnKeys.put(ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE, "phone");
+                            returnKeys.put(ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE, "email");
 
                             //First get ID
                             String id = null;
                             int idx;
                             WritableMap contactData = Arguments.createMap();
-                            Cursor cursor = this.contentResolver.query(contactUri, null, null, null, null);
-                            if (cursor != null && cursor.moveToFirst()) {
+                            Log.v(TAG, " - 2");
+                            //Cursor cursor = getReactApplicationContext().getContentResolver().query(contactUri, null, null, null, null);
+                             Cursor cursor = mCtx.getContentResolver().query(contactUri, null, null, null, null);
+                            FLog.e(TAG, " - 3");
+                            if (cursor.moveToFirst()) {
                                 idx = cursor.getColumnIndex(ContactsContract.Contacts._ID);
                                 id = cursor.getString(idx);
                             } else {
                                 mContactsPromise.reject(E_CONTACT_NO_DATA, "Contact Data Not Found");
                                 return;
                             }
-
+                            FLog.e(TAG, " - 4");
 
                             // Build the Entity URI.
                             Uri.Builder b = Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_URI, id).buildUpon();
@@ -147,19 +188,13 @@ public class ContactsWrapper extends ReactContextBaseJavaModule implements Activ
                                 ContactsContract.Contacts.Entity.DATA1
                             };
                             String sortOrder = ContactsContract.Contacts.Entity.RAW_CONTACT_ID + " ASC";
-                            cursor = this.contentResolver.query(contactUri, projection, null, null, sortOrder);
-                            if(cursor == null)  return;
+                            cursor = mCtx.getContentResolver().query(contactUri, projection, null, null, sortOrder);
 
                             String mime;
                             boolean foundData = false;
-                            /* Map Any contact data we want returned to the JS object key for React Native */
-                            HashMap<String, String> returnKeys = new HashMap<String, String>();
-                            returnKeys.put(ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE, "name");
-                            returnKeys.put(ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE, "phone");
-                            returnKeys.put(ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE, "email");
-
                             int dataIdx = cursor.getColumnIndex(ContactsContract.Contacts.Entity.DATA1);
                             int mimeIdx = cursor.getColumnIndex(ContactsContract.Contacts.Entity.MIMETYPE);
+
                             if (cursor.moveToFirst()) {
                                 do {
                                     mime = cursor.getString(mimeIdx);
@@ -170,11 +205,12 @@ public class ContactsWrapper extends ReactContextBaseJavaModule implements Activ
                                 } while (cursor.moveToNext());
                             }
 
-                            cursor.close();
+                            FLog.e(TAG, " - 6");
                             if(foundData) {
                                 mContactsPromise.resolve(contactData);
                                 return;
                             } else {
+                                Log.v(TAG, " - 7");
                                 mContactsPromise.reject(E_CONTACT_NO_DATA, "No data found for contact");
                                 return;
                             }
@@ -200,10 +236,12 @@ public class ContactsWrapper extends ReactContextBaseJavaModule implements Activ
 
                             // For now, return only the first email address, as a string
                             if (cursor.moveToFirst()) {
+
                                 email = cursor.getString(emailIdx);
                                 mContactsPromise.resolve(email);
                                 return;
                             } else {
+
                                 //Contact has no email address stored
                                 mContactsPromise.reject(E_CONTACT_NO_EMAIL, "No email found for contact");
                                 return;
