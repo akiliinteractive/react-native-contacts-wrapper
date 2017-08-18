@@ -40,7 +40,7 @@ public class ContactsWrapper extends ReactContextBaseJavaModule implements Activ
     private static final String E_CONTACT_NO_DATA = "E_CONTACT_NO_DATA";
     private static final String E_CONTACT_NO_EMAIL = "E_CONTACT_NO_EMAIL";
     private static final String E_CONTACT_EXCEPTION = "E_CONTACT_EXCEPTION";
-    private static final String TAG = "MyActivity";
+    private static final String TAG = "RN Log -:";
     final private int MY_PERMISSIONS_REQUEST_READ_CONTACTS = 123;
 
     private Promise mContactsPromise;
@@ -82,6 +82,34 @@ public class ContactsWrapper extends ReactContextBaseJavaModule implements Activ
         intent.setType(ContactsContract.Contacts.CONTENT_TYPE);
         mCtx = getCurrentActivity();
 
+        if (ContextCompat.checkSelfPermission(mCtx,
+                Manifest.permission.READ_CONTACTS)
+                != PackageManager.PERMISSION_GRANTED) {
+
+            // Should we show an explanation?
+            if (ActivityCompat.shouldShowRequestPermissionRationale(mCtx,
+                    Manifest.permission.READ_CONTACTS)) {
+
+                // Show an explanation to the user *asynchronously* -- don't block
+                // this thread waiting for the user's response! After the user
+                // sees the explanation, try again to request the permission.
+
+            } else {
+
+                // No explanation needed, we can request the permission.
+
+                ActivityCompat.requestPermissions(mCtx,
+                        new String[]{Manifest.permission.READ_CONTACTS},
+                        MY_PERMISSIONS_REQUEST_READ_CONTACTS);
+
+                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
+                // app-defined int constant. The callback method gets the
+                // result of the request.
+            }
+        }
+
+
+
         if (intent.resolveActivity(mCtx.getPackageManager()) != null) {
             mCtx.startActivityForResult(intent, requestCode);
         }
@@ -96,49 +124,21 @@ public class ContactsWrapper extends ReactContextBaseJavaModule implements Activ
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
 
-                    // permission was granted, yay! Do the
-                    // contacts-related task you need to do.
+                    // permission was granted
 
                 } else {
 
-                    // permission denied, boo! Disable the
-                    // functionality that depends on this permission.
+                    // permission denied
                 }
                 return;
             }
 
-            // other 'case' lines to check for other
-            // permissions this app might request
         }
     }
 
     @Override
     public void onActivityResult(Activity ContactsWrapper, final int requestCode, final int resultCode, final Intent intent) {
-        if (ContextCompat.checkSelfPermission(ContactsWrapper,
-                Manifest.permission.READ_CONTACTS)
-                != PackageManager.PERMISSION_GRANTED) {
 
-            // Should we show an explanation?
-            if (ActivityCompat.shouldShowRequestPermissionRationale(ContactsWrapper,
-                    Manifest.permission.READ_CONTACTS)) {
-
-                // Show an explanation to the user *asynchronously* -- don't block
-                // this thread waiting for the user's response! After the user
-                // sees the explanation, try again to request the permission.
-
-            } else {
-
-                // No explanation needed, we can request the permission.
-
-                ActivityCompat.requestPermissions(ContactsWrapper,
-                        new String[]{Manifest.permission.READ_CONTACTS},
-                        MY_PERMISSIONS_REQUEST_READ_CONTACTS);
-
-                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
-                // app-defined int constant. The callback method gets the
-                // result of the request.
-            }
-        }
         if(mContactsPromise == null || mCtx == null
               || (requestCode != CONTACT_REQUEST && requestCode != EMAIL_REQUEST)){
           return;
@@ -164,10 +164,8 @@ public class ContactsWrapper extends ReactContextBaseJavaModule implements Activ
                             String id = null;
                             int idx;
                             WritableMap contactData = Arguments.createMap();
-                            Log.v(TAG, " - 2");
                             //Cursor cursor = getReactApplicationContext().getContentResolver().query(contactUri, null, null, null, null);
                              Cursor cursor = mCtx.getContentResolver().query(contactUri, null, null, null, null);
-                            FLog.e(TAG, " - 3");
                             if (cursor.moveToFirst()) {
                                 idx = cursor.getColumnIndex(ContactsContract.Contacts._ID);
                                 id = cursor.getString(idx);
@@ -175,7 +173,6 @@ public class ContactsWrapper extends ReactContextBaseJavaModule implements Activ
                                 mContactsPromise.reject(E_CONTACT_NO_DATA, "Contact Data Not Found");
                                 return;
                             }
-                            FLog.e(TAG, " - 4");
 
                             // Build the Entity URI.
                             Uri.Builder b = Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_URI, id).buildUpon();
@@ -205,12 +202,13 @@ public class ContactsWrapper extends ReactContextBaseJavaModule implements Activ
                                 } while (cursor.moveToNext());
                             }
 
-                            FLog.e(TAG, " - 6");
+
                             if(foundData) {
+                                //FLog.e(TAG, contactData.toString());
                                 mContactsPromise.resolve(contactData);
                                 return;
                             } else {
-                                Log.v(TAG, " - 7");
+
                                 mContactsPromise.reject(E_CONTACT_NO_DATA, "No data found for contact");
                                 return;
                             }
